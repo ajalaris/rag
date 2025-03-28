@@ -74,6 +74,23 @@ services:
       - ollama
     restart: unless-stopped
 
+  # Nuevo servicio RAG API
+  rag-api:
+    build: 
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: rag-api
+    volumes:
+      - ./documentos:/app/documentos  # Montar carpeta de documentos
+      - ./faiss_index:/app/faiss_index  # Montar carpeta de índice FAISS
+    ports:
+      - "8000:8000"  # Exponer puerto de FastAPI
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+    depends_on:
+      - ollama
+      - rag-app
+    restart: unless-stopped
 volumes:
   n8n_data:
   postgres_data:
