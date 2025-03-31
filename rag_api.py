@@ -3,9 +3,9 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import sys
-sys.path.append('/app')  # Add the app directory to Python path
+sys.path.append('/app')  # Agrega el dir de la api al path de python
 
-# Import the core functionality from app.py
+# Importa la función ppal desde  app.py
 from app import (
     get_vector_index, 
     setup_ollama_model, 
@@ -16,7 +16,7 @@ from langchain.chains import RetrievalQA
 
 app = FastAPI(title="RAG API for Document Querying")
 
-# Configuration parameters (similar to Streamlit app)
+# Configuración de parameteros (similar a Streamlit app)
 DOCS_FOLDER = os.environ.get('DOCS_FOLDER', '/app/documentos')
 OLLAMA_BASE_URL = os.environ.get('OLLAMA_BASE_URL', 'http://ollama:11434')
 MODEL_NAME = os.environ.get('MODEL_NAME', 'mistral:7b-instruct-q2_K')
@@ -36,17 +36,17 @@ class QueryResponse(BaseModel):
 @app.post("/query_documents")
 async def query_documents(request: QueryRequest):
     try:
-        # Check Ollama connection
+        # testea la conexión con Ollama 
         ollama_status, ollama_message = check_ollama_connection(OLLAMA_BASE_URL, MODEL_NAME)
         if not ollama_status:
             raise HTTPException(status_code=500, detail=f"Ollama connection error: {ollama_message}")
 
-        # Load vector index
+        # carga índice vectorDB 
         vectorstore = get_vector_index(DOCS_FOLDER, INDEX_PATH)
         if vectorstore is None:
             raise HTTPException(status_code=404, detail="No documents found or index creation failed")
 
-        # Setup Ollama model with specific parameters
+        # Configura los parámetros para Ollama
         ollama_model = setup_ollama_model(
             OLLAMA_BASE_URL, 
             MODEL_NAME, 
@@ -54,7 +54,7 @@ async def query_documents(request: QueryRequest):
             request.max_tokens
         )
 
-        # Create QA chain
+        # Crea la cadena deconsulta
         qa_chain = RetrievalQA.from_chain_type(
             llm=ollama_model,
             chain_type="stuff",
@@ -62,10 +62,10 @@ async def query_documents(request: QueryRequest):
             return_source_documents=True
         )
 
-        # Process query
+        # Procesa los datos de consulta
         result = qa_chain({"query": request.query})
 
-        # Prepare sources information
+        # Prepara la información de fuentes
         sources = [
             {
                 "source": doc.metadata.get('source', 'Unknown'),
