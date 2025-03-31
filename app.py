@@ -123,7 +123,8 @@ def setup_ollama_model(base_url, model_name, temperature, max_tokens):
         base_url=base_url,
         model=model_name,
         temperature=temperature,
-        num_predict=max_tokens
+        num_predict=max_tokens,
+        system="Por favor, proporciona siempre tus respuestas en español, independientemente del idioma de la consulta."
     )
 
 # Función para verificar la conexión con Ollama
