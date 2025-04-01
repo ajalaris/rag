@@ -28,6 +28,7 @@
 
 ## Arquitectura del Sistema
 
+![esquema](https://github.com/ajalaris/rag/blob/master/compose-viz.VizFormats.svg)
 
 1. **Carga de documentos** (PDFs/TXTs)
 2. **Procesamiento de texto**
