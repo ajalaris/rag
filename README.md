@@ -189,5 +189,46 @@ Ejemplo de Response de la API
 - **Personalización de prompts** del sistema
 
 ---
+# Deploy #
+Paso a paso:
+
+1.	**Clonacion del repositorio https://github.com/ajalaris/rag.git**
+````
+git clone https://github.com/ajalaris/rag.git
+````
+2.	**cambiar al directorio rag**
+````
+cd rag/
+````
+3.	**Modificacion de datos específicos de la implementación:**
+   -  a.	En n8n_workflow.json 
+````
+"fromEmail": "la casilla que recibe las consultas",
+````
+   -  b. En Docker-compose.yml 
+      - i.	Servicio n8n 
+         - N8N_BASIC_AUTH_PASSWORD=UnaClaveParaN8N
+         - N8N_HOST=<FQDN del dockerhost, sin protocolo> ej: server.miempresa.local
+         - N8N_EDITOR_BASE_URL=http://<IP del dockerhost>
+         - WEBHOOK_URL=”http://<FQDN del dockerhost>”
+         - N8N_ENCRYPTION_KEY=unaClaveDeEncriptaciónMuySegura
+      - ii.	En ollama-webui
+         - PUBLIC_OLLAMA_API_BASE_URL=http://<FQDN del dockerhost>:11434/api
+4.	Crear la imagen y encender Ollama
+````
+Docker compose up -d n8n postgres ollama ollama-webui 
+````
+5.	Ejecutar la consola del contenedor de ollama
+````
+docker compose exec ollama /bin/bash 
+````
+6.	Cargar el modelo en el contenedor
+````
+ollama run mistral:7b-instruct-q2_K
+````
+7.	Copiar los archivos pdf y txt sobre los que se realizarán las consultas en la carpeta ./documentos (si no existe, crearla)
+8.	Arrancar los contenedores de api y aplicación
+```` Docker compose up -d rag-app rag-api ````
+Este ultimo paso va a tomar algún tiempo porque instala una cantidad considerable de paquetes.
 
 ## ¡Gracias!
