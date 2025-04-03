@@ -58,6 +58,7 @@
   - Parámetros de generación
 - **Visualización** de respuestas y fuentes
 - **Instrucciones** integradas para usuarios
+![rag-app](https://github.com/ajalaris/rag/blob/master/rag-app.png)
 
 ---
 
@@ -117,7 +118,10 @@ Ejemplo de Response de la API
 - **FAISS**: Índice vectorial eficiente
 - **HuggingFace Embeddings**: Vectorización de texto
 - **Docker**: Contenedorización y despliegue
-
+- **Ollama WEBUI**: Interfaz web para Ollama local 
+ ![Ollama](https://github.com/ajalaris/rag/blob/master/ollama-webui.png)
+- **N8N**: Ejecución local de Workflown varios
+![N8N_Workflow](https://github.com/ajalaris/rag/blob/master/n8n_workflow.png)
 ---
 
 ## Componentes Técnicos Destacados
