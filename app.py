@@ -8,7 +8,13 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_community.llms import Ollama
 from langchain.chains import RetrievalQA
-
+# Intentar usar CUDA si está disponible
+import torch
+cuda_available = torch.cuda.is_available()
+device = "cuda" if cuda_available else "cpu"
+st.sidebar.info(f"Dispositivo de cómputo: {device.upper()}")
+if cuda_available:
+    st.sidebar.success(f"GPU detectada: {torch.cuda.get_device_name(0)}")
 # Configuración de la página
 st.set_page_config(page_title="Consulta de documentos con Mistral", layout="wide")
 st.title("Consulta de documentos con Mistral:7b")
@@ -59,10 +65,13 @@ def load_documents(folder_path):
 # Función para crear embeddings compatibles
 def get_embeddings():
     try:
-        # Intentar usar HuggingFaceEmbeddings de langchain_huggingface
+        # Detectar si CUDA está disponible
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        
+        # Usar HuggingFaceEmbeddings con el dispositivo detectado
         return HuggingFaceEmbeddings(
             model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
-            model_kwargs={"device": "cpu"}
+            model_kwargs={"device": device}
         )
     except Exception as e:
         st.error(f"Error al cargar el modelo de embeddings: {str(e)}")
@@ -74,7 +83,6 @@ def get_embeddings():
         except:
             st.error("No se pudo cargar ningún modelo de embeddings.")
             return None
-
 # Función para crear o cargar el índice
 @st.cache_resource
 def get_vector_index(docs_folder, index_path):

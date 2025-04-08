@@ -12,12 +12,12 @@ services:
       - N8N_BASIC_AUTH_ACTIVE=true
       - N8N_BASIC_AUTH_USER=admin
       - N8N_BASIC_AUTH_PASSWORD=PSW1234
-      - N8N_HOST=hpidea.jalaris.com.ar
-      - N8N_EDITOR_BASE_URL=http://hpidea.jalaris.com.ar
-      - WEBHOOK_URL="http://hpidea.jalaris.com.ar"
+      - N8N_HOST=10.128.0.5
+      - N8N_EDITOR_BASE_URL=http://rem.extrimian.com
+      - WEBHOOK_URL="http://rem.extrimian.com"
       - N8N_PORT=5678
       - N8N_PROTOCOL=http
-      - N8N_ENCRYPTION_KEY=unaClaveDeEncriptaciónMuySegura
+      - N8N_ENCRYPTION_KEY=PSW.192837
       - NODE_ENV=production
     volumes:
       - n8n_data:/home/node/.n8n
@@ -30,7 +30,7 @@ services:
     restart: always
     environment:
       - POSTGRES_USER=n8n
-      - POSTGRES_PASSWORD=PSW1234
+      - POSTGRES_PASSWORD=PSW.192837
       - POSTGRES_DB=n8n
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -43,6 +43,15 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
     #command: ollama run mistral:7b
 
   # Interfaz web para tu LLM local
@@ -53,7 +62,7 @@ services:
       - "3000:8080"
     environment:
       - OLLAMA_API_BASE_URL=http://ollama:11434/api
-      - PUBLIC_OLLAMA_API_BASE_URL=http://172.16.0.190:11434/api
+      - PUBLIC_OLLAMA_API_BASE_URL=http://logan5.extrimian.com:11434/api  # Cambia esto por la IP externa de tu VM
     depends_on:
       - ollama
 
@@ -68,15 +77,15 @@ services:
       - ./faiss_index:/app/faiss_index  # Montar carpeta para el índice
     ports:
       - "8501:8501"  # Puerto de Streamlit
-#      - "8502:8502"  # API
-#      - "8000:8000"  # Puerto de FastAPI
     environment:
       - OLLAMA_BASE_URL=http://ollama:11434
+      - NVIDIA_VISIBLE_DEVICES=all
+    runtime: nvidia  # Usar runtime de nvidia
     depends_on:
       - ollama
     restart: unless-stopped
 
-  # Nuevo servicio RAG API
+  # API RAG
   rag-api:
     build: 
       context: .
@@ -89,10 +98,13 @@ services:
       - "8000:8000"  # Exponer puerto de FastAPI
     environment:
       - OLLAMA_BASE_URL=http://ollama:11434
+      - NVIDIA_VISIBLE_DEVICES=all
+    runtime: nvidia  # Usar runtime de nvidia
     depends_on:
       - ollama
       - rag-app
     restart: unless-stopped
+
 volumes:
   n8n_data:
   postgres_data:

@@ -3,7 +3,7 @@ langchain>=0.1.7
 langchain-community>=0.0.21
 langchain-huggingface>=0.0.10
 langsmith>=0.1.0
-faiss-cpu==1.7.4
+faiss-cpu==1.7.4  # Mantenemos faiss-cpu por ahora
 pypdf==4.0.1
 sentence-transformers>==2.2.2
 torch>==2.2.2

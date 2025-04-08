@@ -2,10 +2,11 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# Instalar dependencias del sistema
+# Instalar dependencias del sistema (sin los paquetes NVIDIA problemáticos)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    build-essential libopenblas-dev cmake  && apt-get clean && rm -rf /var/lib/apt/lists/*
+    build-essential libopenblas-dev cmake && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Copiar requirements.txt y la aplicación
 COPY requirements.txt .
