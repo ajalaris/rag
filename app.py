@@ -8,6 +8,9 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_community.llms import Ollama
 from langchain.chains import RetrievalQA
+# Configuración de la página
+st.set_page_config(page_title="Consulta de documentos con Mistral", layout="wide")
+st.title("Consulta de documentos con Mistral:7b")
 # Intentar usar CUDA si está disponible
 import torch
 cuda_available = torch.cuda.is_available()
@@ -15,10 +18,6 @@ device = "cuda" if cuda_available else "cpu"
 st.sidebar.info(f"Dispositivo de cómputo: {device.upper()}")
 if cuda_available:
     st.sidebar.success(f"GPU detectada: {torch.cuda.get_device_name(0)}")
-# Configuración de la página
-st.set_page_config(page_title="Consulta de documentos con Mistral", layout="wide")
-st.title("Consulta de documentos con Mistral:7b")
-
 # Parámetros configurables - con valores predeterminados para Docker
 with st.sidebar:
     st.header("Configuración")
@@ -31,12 +30,11 @@ with st.sidebar:
     
     st.subheader("Parámetros del modelo")
     temperature = st.slider("Temperatura", 0.0, 1.0, 0.1)
-    max_tokens = st.slider("Tokens máximos", 100, 2000, 500)
+    max_tokens = st.slider("Tokens máximos", 100, 2000, 1000)
     
     if st.button("Crear/Actualizar Índice"):
         with st.spinner("Procesando documentos..."):
             create_index = True
-
 # Función para cargar documentos
 def load_documents(folder_path):
     documents = []
@@ -98,7 +96,7 @@ def get_vector_index(docs_folder, index_path):
     index_files = os.path.join(index_path, "index.faiss")
     if os.path.exists(index_files):
         try:
-            vectorstore = FAISS.load_local(index_path, embeddings)
+            vectorstore = FAISS.load_local(index_path, embeddings, allow_dangerous_deserialization=True)
             st.sidebar.success("Índice cargado correctamente")
             return vectorstore
         except Exception as e:
