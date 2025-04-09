@@ -8,24 +8,32 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_community.llms import Ollama
 from langchain.chains import RetrievalQA
+import torch
+import requests
+from datetime import datetime
+from pathlib import Path
+import shutil
+
+# Intentar usar CUDA si está disponible
+cuda_available = torch.cuda.is_available()
+device = "cuda" if cuda_available else "cpu"
+
 # Configuración de la página
 st.set_page_config(page_title="Consulta de documentos con Mistral", layout="wide")
 st.title("Consulta de documentos con Mistral:7b")
-# Intentar usar CUDA si está disponible
-import torch
-cuda_available = torch.cuda.is_available()
-device = "cuda" if cuda_available else "cpu"
-st.sidebar.info(f"Dispositivo de cómputo: {device.upper()}")
-if cuda_available:
-    st.sidebar.success(f"GPU detectada: {torch.cuda.get_device_name(0)}")
+
 # Parámetros configurables - con valores predeterminados para Docker
 with st.sidebar:
     st.header("Configuración")
+    st.info(f"Dispositivo de cómputo: {device.upper()}")
+    if cuda_available:
+        st.success(f"GPU detectada: {torch.cuda.get_device_name(0)}")
+        
     docs_folder = st.text_input("Carpeta de documentos", "documentos")
     # Usar variable de entorno para la URL de Ollama o valor predeterminado
     default_ollama_url = os.environ.get("OLLAMA_BASE_URL", "http://ollama:11434")
     ollama_base_url = st.text_input("URL de Ollama", default_ollama_url)
-    model_name = st.text_input("Nombre del modelo", "mistral:7b-instruct-q2_K")
+    model_name = st.text_input("Nombre del modelo", "mistral:7b-instruct-q2_K")  # Cambiado a mistral-gpu
     index_path = st.text_input("Ruta para guardar el índice", "faiss_index")
     
     st.subheader("Parámetros del modelo")
@@ -34,7 +42,126 @@ with st.sidebar:
     
     if st.button("Crear/Actualizar Índice"):
         with st.spinner("Procesando documentos..."):
-            create_index = True
+            st.session_state['create_index'] = True
+
+# Función para subir documentos
+def upload_documents(folder_path):
+    """Función para subir documentos a la carpeta del repositorio"""
+    st.subheader("Subir nuevos documentos")
+    
+    # Crear la carpeta si no existe
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path, exist_ok=True)
+        
+    uploaded_files = st.file_uploader("Selecciona archivos PDF o TXT", 
+                                     type=["pdf", "txt"], 
+                                     accept_multiple_files=True)
+    
+    if uploaded_files:
+        with st.spinner("Subiendo documentos..."):
+            uploaded_count = 0
+            for uploaded_file in uploaded_files:
+                # Crear un nombre seguro para el archivo
+                safe_filename = datetime.now().strftime("%Y%m%d_%H%M%S_") + uploaded_file.name
+                file_path = os.path.join(folder_path, safe_filename)
+                
+                # Guardar el archivo
+                try:
+                    with open(file_path, "wb") as f:
+                        f.write(uploaded_file.getbuffer())
+                    uploaded_count += 1
+                    st.success(f"✅ Archivo subido: {safe_filename}")
+                except Exception as e:
+                    st.error(f"❌ Error al subir {uploaded_file.name}: {str(e)}")
+            
+            if uploaded_count > 0:
+                st.success(f"Se subieron {uploaded_count} documento(s) correctamente")
+                # Sugerir recrear el índice
+                st.info("Recuerda hacer clic en 'Crear/Actualizar Índice' para procesar los nuevos documentos")
+                return True
+    return False
+
+# Función para eliminar documentos
+def delete_documents(folder_path):
+    """Función para eliminar documentos del repositorio"""
+    st.subheader("Eliminar documentos")
+    
+    if not os.path.exists(folder_path):
+        st.warning(f"La carpeta {folder_path} no existe")
+        return False
+    
+    # Listar documentos disponibles
+    docs = sorted([f for f in os.listdir(folder_path) if f.endswith(('.pdf', '.txt'))])
+    
+    if not docs:
+        st.info("No hay documentos para eliminar")
+        return False
+    
+    # Opciones de eliminación
+    delete_option = st.radio(
+        "Selecciona una opción:",
+        ["Eliminar documentos individuales", "Eliminar todos los documentos"]
+    )
+    
+    if delete_option == "Eliminar documentos individuales":
+        selected_docs = st.multiselect("Selecciona los documentos a eliminar:", docs)
+        
+        if selected_docs and st.button("Eliminar seleccionados", type="primary"):
+            with st.spinner("Eliminando documentos..."):
+                deleted_count = 0
+                for doc in selected_docs:
+                    try:
+                        os.remove(os.path.join(folder_path, doc))
+                        deleted_count += 1
+                        st.success(f"✅ Eliminado: {doc}")
+                    except Exception as e:
+                        st.error(f"❌ Error al eliminar {doc}: {str(e)}")
+                
+                if deleted_count > 0:
+                    st.success(f"Se eliminaron {deleted_count} documento(s) correctamente")
+                    st.info("Recuerda hacer clic en 'Crear/Actualizar Índice' para actualizar el índice")
+                    return True
+    
+    elif delete_option == "Eliminar todos los documentos":
+        st.warning("⚠️ Esta acción eliminará TODOS los documentos del repositorio")
+        
+        # Confirmar la eliminación con un campo de texto
+        confirmation = st.text_input("Escribe 'CONFIRMAR' para eliminar todos los documentos")
+        
+        if confirmation == "CONFIRMAR" and st.button("Eliminar todos", type="primary"):
+            with st.spinner("Eliminando todos los documentos..."):
+                try:
+                    # Eliminar cada archivo individualmente
+                    deleted_count = 0
+                    for doc in docs:
+                        os.remove(os.path.join(folder_path, doc))
+                        deleted_count += 1
+                    
+                    st.success(f"Se eliminaron todos los documentos ({deleted_count} archivos)")
+                    st.info("Recuerda hacer clic en 'Crear/Actualizar Índice' para actualizar el índice")
+                    return True
+                except Exception as e:
+                    st.error(f"Error al eliminar todos los documentos: {str(e)}")
+    
+    return False
+
+# Sección para gestionar documentos
+def manage_documents_section(docs_folder):
+    """Sección para gestionar documentos en la barra lateral"""
+    with st.sidebar:
+        st.header("Gestión de documentos")
+        tab1, tab2 = st.tabs(["Subir", "Eliminar"])
+        
+        with tab1:
+            uploaded = upload_documents(docs_folder)
+        
+        with tab2:
+            deleted = delete_documents(docs_folder)
+        
+        if uploaded or deleted:
+            # Si hubo cambios, sugerir actualizar el índice
+            st.sidebar.button("Actualizar índice ahora", on_click=lambda: st.session_state.update({'create_index': True}))
+
 # Función para cargar documentos
 def load_documents(folder_path):
     documents = []
@@ -81,9 +208,21 @@ def get_embeddings():
         except:
             st.error("No se pudo cargar ningún modelo de embeddings.")
             return None
+
 # Función para crear o cargar el índice
 @st.cache_resource
-def get_vector_index(docs_folder, index_path):
+def get_vector_index(docs_folder, index_path, allow_dangerous_deserialization=True, force_rebuild=False):
+    """
+    Crea o carga el índice vectorial.
+    
+    Args:
+        docs_folder: Carpeta donde están los documentos
+        index_path: Carpeta donde se guarda el índice
+        force_rebuild: Si es True, reconstruye el índice aunque ya exista
+    
+    Returns:
+        FAISS vectorstore o None si hay error
+    """
     # Asegurar que la carpeta del índice existe
     os.makedirs(index_path, exist_ok=True)
     
@@ -92,11 +231,11 @@ def get_vector_index(docs_folder, index_path):
     if embeddings is None:
         return None
     
-    # Intentar cargar el índice existente
+    # Intentar cargar el índice existente si no se fuerza la reconstrucción
     index_files = os.path.join(index_path, "index.faiss")
-    if os.path.exists(index_files):
+    if os.path.exists(index_files) and not force_rebuild:
         try:
-            vectorstore = FAISS.load_local(index_path, embeddings, allow_dangerous_deserialization=True)
+            vectorstore = FAISS.load_local(index_path, embeddings)
             st.sidebar.success("Índice cargado correctamente")
             return vectorstore
         except Exception as e:
@@ -157,10 +296,18 @@ if ollama_status:
 else:
     st.sidebar.error(ollama_message)
 
+# Añadir la sección de gestión de documentos
+manage_documents_section(docs_folder)
+
 # Inicializar o cargar el índice
 try:
+    # Verificar si debemos forzar la reconstrucción del índice
+    force_rebuild = st.session_state.get('create_index', False)
+    if force_rebuild:
+        st.session_state['create_index'] = False  # Resetear el flag
+    
     with st.spinner("Cargando índice de documentos..."):
-        vectorstore = get_vector_index(docs_folder, index_path)
+        vectorstore = get_vector_index(docs_folder, index_path, allow_dangerous_deserialization=True, force_rebuild=force_rebuild)
     
     # Configurar la cadena de consulta si el índice está disponible y Ollama está conectado
     if vectorstore is not None and ollama_status:
@@ -208,18 +355,19 @@ with st.expander("Instrucciones de uso"):
     ### Cómo usar esta aplicación
     
     1. **Configuración inicial:**
-       - Coloca tus documentos PDF y TXT en la carpeta 'documentos'
+       - Puedes subir documentos PDF y TXT usando la sección "Gestión de documentos"
        - La aplicación se conecta automáticamente a Ollama en el contenedor 'ollama'
        - Si necesitas cambiar la URL de Ollama, puedes hacerlo en la barra lateral
 
-    2. **Creación del índice:**
-       - Haz clic en "Crear/Actualizar Índice" para procesar tus documentos
-       - Este proceso extrae el texto, lo divide en fragmentos y crea un índice de búsqueda
+    2. **Gestión de documentos:**
+       - **Subir:** Puedes cargar PDF y TXT directamente desde la interfaz
+       - **Eliminar:** Puedes eliminar documentos individualmente o todos a la vez
+       - Después de agregar o eliminar documentos, haz clic en "Crear/Actualizar Índice"
 
     3. **Realización de consultas:**
        - Escribe tu pregunta en el área de texto
        - El sistema buscará información relevante en tus documentos
-       - Mistral:7b generará una respuesta basada únicamente en el contenido de tus documentos
+       - Mistral generará una respuesta basada únicamente en el contenido de tus documentos
        
     4. **Ajustes avanzados:**
        - Temperatura: controla la creatividad del modelo (valores más bajos = respuestas más deterministas)
@@ -234,10 +382,11 @@ with st.expander("Información sobre Docker"):
     Esta aplicación está ejecutándose en un entorno Docker con:
     
     - **Contenedor de la aplicación:** Ejecutando Streamlit
-    - **Contenedor de Ollama:** Ejecutando el modelo Mistral:7b
+    - **Contenedor de Ollama:** Ejecutando el modelo Mistral con aceleración GPU
     
     Los documentos se guardan en la carpeta 'documentos' que está montada como volumen.
     El índice FAISS se guarda en la carpeta 'faiss_index' que también está montada como volumen.
     
-    Para añadir nuevos documentos, colócalos en la carpeta 'documentos' y haz clic en "Crear/Actualizar Índice".
+    Esta versión de la aplicación detecta automáticamente si hay GPU disponible y la utiliza para mejorar 
+    el rendimiento tanto del modelo de embeddings como de Mistral.
     """)
