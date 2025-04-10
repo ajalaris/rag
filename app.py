@@ -211,7 +211,7 @@ def get_embeddings():
 
 # Función para crear o cargar el índice
 @st.cache_resource
-def get_vector_index(docs_folder, index_path, allow_dangerous_deserialization=True, force_rebuild=False):
+def get_vector_index(docs_folder, index_path, force_rebuild=False):
     """
     Crea o carga el índice vectorial.
     
@@ -235,7 +235,7 @@ def get_vector_index(docs_folder, index_path, allow_dangerous_deserialization=Tr
     index_files = os.path.join(index_path, "index.faiss")
     if os.path.exists(index_files) and not force_rebuild:
         try:
-            vectorstore = FAISS.load_local(index_path, embeddings)
+            vectorstore = FAISS.load_local(index_path, embeddings, allow_dangerous_deserialization=True)
             st.sidebar.success("Índice cargado correctamente")
             return vectorstore
         except Exception as e:
@@ -307,7 +307,7 @@ try:
         st.session_state['create_index'] = False  # Resetear el flag
     
     with st.spinner("Cargando índice de documentos..."):
-        vectorstore = get_vector_index(docs_folder, index_path, allow_dangerous_deserialization=True, force_rebuild=force_rebuild)
+        vectorstore = get_vector_index(docs_folder, index_path, force_rebuild=force_rebuild)
     
     # Configurar la cadena de consulta si el índice está disponible y Ollama está conectado
     if vectorstore is not None and ollama_status:
