@@ -17,7 +17,7 @@ RUN mkdir -p documentos faiss_index
 
 # Instalar dependencias de Python
 RUN pip install --no-cache-dir -r requirements.txt
-
+RUN pip install langchain_openai openai
 # Exponer el puerto de Streamlit
 EXPOSE 8501
 
